@@ -1,4 +1,3 @@
-# socket_manager.py
 import asyncio
 import socketio
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -17,9 +16,7 @@ redis_client = aioredis.Redis(host='localhost', port=6379, db=0,decode_responses
 async def connect(sid, environ):
     print(f"Socket Connected: {sid}")
 
-# @sio.event
-# async def disconnect(sid):
-#     print(f"Socket Disconnected: {sid}")
+
 
 @sio.event
 async def search_query(sid, data):
