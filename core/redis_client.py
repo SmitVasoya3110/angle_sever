@@ -1,12 +1,69 @@
-import redis.asyncio as redis
+import redis
+import json
+from typing import Optional, Dict, List
+from config import settings
+from core.logger import get_logger
+import traceback
+
+logger = get_logger(__name__)
 
 class RedisManager:
     def __init__(self):
-        self.redis_client = redis.Redis(
-            host="localhost",
-            port=6379,
-            decode_responses=True
-        )
+        # self.redis_client = redis.Redis(
+        #     host="localhost",
+        #     port=6379,
+        #     decode_responses=True
+        # )
+        try:
+            # Create a connection pool
+            self.pool = redis.ConnectionPool.from_url(
+                settings.REDIS_URL,
+                max_connections=10,  # Limit max connections
+                decode_responses=True
+            )
+            self.redis_client = redis.Redis(connection_pool=self.pool)
+            logger.info("Redis connection pool established")
+        except Exception as e:
+            logger.error(f"Failed to connect to Redis: {str(e)}\nTraceback:\n{traceback.format_exc()}")
+            raise
+            
+    def close(self):
+        """Close Redis connections"""
+        try:
+            self.redis_client.close()
+            self.pool.disconnect()
+            logger.info("Redis connections closed")
+        except Exception as e:
+            logger.error(f"Error closing Redis connections: {str(e)}")
+        
+    # @log_exceptions(logger)
+    def get_tokens(self) -> Optional[List[Dict]]:
+        """Get tokens from Redis"""
+        tokens_json = self.redis_client.get('smartapi:tokens')
+        if tokens_json:
+            try:
+                return json.loads(tokens_json)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to decode tokens JSON: {tokens_json}\nError: {str(e)}")
+                raise
+        logger.info("No tokens found in Redis")
+        return None
 
-# Create a singleton instance
+    # @log_exceptions(logger)
+    def publish_market_data(self, data: Dict) -> None:
+        """Publish market data to Redis channel
+        
+        Args:
+            data: Dictionary containing market data
+        """
+        try:
+            # Use exchange type for channel to reduce number of channels
+            exchange_type = data.get('exchange_type', 'unknown')
+            channel = f"market_data:exchange:{exchange_type}"
+            message = json.dumps(data)
+            self.redis_client.publish(channel, message)
+        except Exception as e:
+            logger.error(f"Failed to publish market data: {str(e)}")
+            raise
+
 redis_manager = RedisManager()
