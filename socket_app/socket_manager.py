@@ -93,15 +93,38 @@ async def subscribe_tokens(sid, data):
 #     except asyncio.CancelledError:
 #         print(f"Stopped streaming for: {sid}")
 
+# @sio.event
+# async def disconnect(sid):
+#     print(f"Client disconnected: {sid}")
+#     task = active_tasks.pop(sid, None)
+#     if task:
+#         task.cancel()
 
 
-@sio.event
-async def disconnect(sid):
-    print(f"Client disconnected: {sid}")
-    task = active_tasks.pop(sid, None)
-    if task:
-        task.cancel()
 
+# async def get_data_from_redis(tokens: list[str]) -> dict:
+#     data = {}
+#     for token in tokens:
+#         result = await redis_client.hgetall(f"exchange:{token}")
+#         if result:
+#             data[token] = result
+#     return data
+
+# # Socket.IO event handler
+# @sio.on("subscribe_exchange_tokens")
+# async def subscribe_exchange_tokens(sid, data):
+#     tokens = data.get("tokens", [])
+#     print(f"[{sid}] Subscribed to tokens: {tokens}")
+
+#     response = await get_data_from_redis(tokens)
+#     print("response: ", response)
+#     await sio.emit("tokens_data", response, to=sid)
+
+
+
+
+# Dictionary to store background tasks per client sid
+client_tasks = {}
 
 async def get_data_from_redis(tokens: list[str]) -> dict:
     data = {}
@@ -111,12 +134,38 @@ async def get_data_from_redis(tokens: list[str]) -> dict:
             data[token] = result
     return data
 
-# Socket.IO event handler
+
+# Background task to emit data repeatedly
+async def emit_token_data(sid, tokens):
+    try:
+        while True:
+            response = await get_data_from_redis(tokens)
+            await sio.emit("tokens_data", response, to=sid)
+            await asyncio.sleep(2)  # Send updates every 2 seconds
+    except asyncio.CancelledError:
+        print(f"[{sid}] Background task cancelled.")
+        raise
+
+
 @sio.on("subscribe_exchange_tokens")
 async def subscribe_exchange_tokens(sid, data):
     tokens = data.get("tokens", [])
     print(f"[{sid}] Subscribed to tokens: {tokens}")
 
-    response = await get_data_from_redis(tokens)
-    print("response: ", response)
-    await sio.emit("tokens_data", response, to=sid)
+    # Cancel any existing task for this sid
+    if sid in client_tasks:
+        client_tasks[sid].cancel()
+        await asyncio.sleep(0)  # Let the event loop process cancellation
+
+    # Start a new background task
+    task = asyncio.create_task(emit_token_data(sid, tokens))
+    client_tasks[sid] = task
+
+
+@sio.on("disconnect")
+async def disconnect(sid):
+    print(f"[{sid}] Disconnected.")
+    # Cancel background task when client disconnects
+    if sid in client_tasks:
+        client_tasks[sid].cancel()
+        del client_tasks[sid]
