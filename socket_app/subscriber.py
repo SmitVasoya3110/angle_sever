@@ -74,17 +74,17 @@ async def handle_market_data(message, sio=None):
         best_sell = json.dumps(data['best_5_sell_data'])
         latest_data['best_5_buy'] = best_buy
         latest_data['best_5_sell'] = best_sell
-
+        print(latest_data)
         pipe = redis_manager.redis_client.pipeline()
 
-        await pipe.hset(f"{base_key}:latest", mapping=latest_data)
+        pipe.hset(f"{base_key}:latest", mapping=latest_data)
         price_ts_key = f"{base_key}:price_history"
-        await pipe.zadd(price_ts_key, {str(data['last_traded_price']): data['exchange_timestamp']})
-        await pipe.zremrangebyrank(price_ts_key, 0, -101)
-        await pipe.expire(f"{base_key}:latest", 86400)
-        await pipe.expire(price_ts_key, 86400)
+        pipe.zadd(price_ts_key, {str(data['last_traded_price']): data['exchange_timestamp']})
+        pipe.zremrangebyrank(price_ts_key, 0, -101)
+        pipe.expire(f"{base_key}:latest", 86400)
+        pipe.expire(price_ts_key, 86400)
 
-        await pipe.execute()
+        pipe.execute()
 
         # asyncio.create_task(write_to_file(data))
 
@@ -150,6 +150,7 @@ class AsyncRedisSubscriber:
             while self.running:
                 message = await self.pubsub.get_message(timeout=1)
                 if message:
+                    print(message)
                     await handle_market_data(message)
                 await asyncio.sleep(0.01)  # Small delay to prevent CPU overload
                 
