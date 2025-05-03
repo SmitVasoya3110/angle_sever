@@ -1,7 +1,10 @@
 import uuid
 import redis.asyncio as redis
+from core.redis_client import redis_manager
 
-redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
+# redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
+redis_client = redis_manager.redis_client
+
 
 async def create_session(user_id: str) -> str:
     session_key = str(uuid.uuid4())

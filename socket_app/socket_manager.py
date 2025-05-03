@@ -3,14 +3,17 @@ import socketio
 from motor.motor_asyncio import AsyncIOMotorClient
 import os, json
 import redis.asyncio as aioredis
+from core.redis_client import redis_manager
+from db import client,db
 
 sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 
-client = AsyncIOMotorClient("mongodb://localhost:27017")
-db = client["android_app"]
-collection = db["temp"]
+collection = db['temp']
 
-redis_client = aioredis.Redis(host='localhost', port=6379, db=0,decode_responses=True)
+# redis_client = aioredis.Redis(host='localhost', port=6379, db=0,decode_responses=True)
+redis_client = redis_manager.redis_client
+
+
 
 @sio.event
 async def connect(sid, environ):
@@ -75,63 +78,17 @@ async def subscribe_tokens(sid, data):
 
 
 
-# @sio.event
-# async def subscribe_exchange_tokens(sid, data):
-
-#     tokens = data.get("tokens", [])
-#     print(f"Received subscription for tokens: {tokens}")
-
-#     try:
-#         while True:
-#             response = {}
-#             for token in tokens:
-#                 key = f"exchange:{token}"
-#                 if redis_client.exists(key):
-#                     response[token] = redis_client.hgetall(key)
-#             await sio.emit("tokens_data", response, to=sid)
-#             await asyncio.sleep(3) 
-#     except asyncio.CancelledError:
-#         print(f"Stopped streaming for: {sid}")
-
-# @sio.event
-# async def disconnect(sid):
-#     print(f"Client disconnected: {sid}")
-#     task = active_tasks.pop(sid, None)
-#     if task:
-#         task.cancel()
-
-
-
-# async def get_data_from_redis(tokens: list[str]) -> dict:
-#     data = {}
-#     for token in tokens:
-#         result = await redis_client.hgetall(f"exchange:{token}")
-#         if result:
-#             data[token] = result
-#     return data
-
-# # Socket.IO event handler
-# @sio.on("subscribe_exchange_tokens")
-# async def subscribe_exchange_tokens(sid, data):
-#     tokens = data.get("tokens", [])
-#     print(f"[{sid}] Subscribed to tokens: {tokens}")
-
-#     response = await get_data_from_redis(tokens)
-#     print("response: ", response)
-#     await sio.emit("tokens_data", response, to=sid)
-
-
-
-
 # Dictionary to store background tasks per client sid
 client_tasks = {}
 
 async def get_data_from_redis(tokens: list[str]) -> dict:
     data = {}
     for token in tokens:
-        result = await redis_client.hgetall(f"exchange:{token}")
+        print(token)
+        result = redis_client.hgetall(f"exchange:{token}")
         if result:
             data[token] = result
+            print(f"{token}=======================",result)
     return data
 
 
