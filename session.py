@@ -8,8 +8,8 @@ redis_client = redis_manager.redis_client
 
 async def create_session(user_id: str) -> str:
     session_key = str(uuid.uuid4())
-    await redis_client.setex(f"session:{session_key}", 604800, user_id)  # 7 days
+    redis_client.setex(f"session:{session_key}", 604800, user_id)  # 7 days
     return session_key
 
 async def validate_session(session_key: str) -> str | None:
-    return await redis_client.get(f"session:{session_key}")
+    return redis_client.get(f"session:{session_key}")

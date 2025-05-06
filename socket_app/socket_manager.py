@@ -86,6 +86,9 @@ async def get_data_from_redis(tokens: list[str]) -> dict:
     for token in tokens:
         print(token)
         result = redis_client.hgetall(f"exchange:{token}")
+        token_name = redis_client.get(f"name:{token}")
+        print(token_name)
+        result['name'] = token_name
         if result:
             data[token] = result
             print(f"{token}=======================",result)
@@ -97,6 +100,7 @@ async def emit_token_data(sid, tokens):
     try:
         while True:
             response = await get_data_from_redis(tokens)
+            print("response: ", response)
             await sio.emit("tokens_data", response, to=sid)
             await asyncio.sleep(2)  # Send updates every 2 seconds
     except asyncio.CancelledError:
