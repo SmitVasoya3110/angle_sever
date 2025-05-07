@@ -85,7 +85,7 @@ async def get_data_from_redis(tokens: list[str]) -> dict:
     data = {}
     for token in tokens:
         print(token)
-        result = redis_client.hgetall(f"exchange:{token}")
+        result = redis_client.hgetall(f"market:2:{token}:3:latest")
         token_name = redis_client.get(f"name:{token}")
         print(token_name)
         result['name'] = token_name
